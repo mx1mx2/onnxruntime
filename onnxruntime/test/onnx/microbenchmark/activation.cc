@@ -335,3 +335,17 @@ BENCHMARK(BM_Tanh)
     ->Arg(320000)
     ->Arg(640000)
     ->Arg(1280000);
+
+static void BM_Relu(benchmark::State& state) {
+  RunSingleNode<Relu<float>>("Relu", "", {}, state, -2.0f, 2.0f);
+}
+
+BENCHMARK(BM_Relu)
+    ->UseRealTime()
+    ->Unit(benchmark::TimeUnit::kNanosecond)  
+    ->Arg(40000)
+    ->Arg(80000)
+    ->Arg(160000)
+    ->Arg(320000)
+    ->Arg(640000)
+    ->Arg(1280000);

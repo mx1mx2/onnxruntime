@@ -27,7 +27,7 @@ class ScaledTanh final : public OpKernel {
     concurrency::ThreadPool* tp = context->GetOperatorThreadPool();
     const int64_t input_size = X->Shape().Size();
     std::ptrdiff_t batch_size = static_cast<std::ptrdiff_t>(input_size);
-    //The cost comes from microbenchmark(manual tunning).
+    //The cost comes from microbenchmark(manual tuning).
     const double cost = 5.0;
     const T* data = X->template Data<T>();
     T* output = Y->template MutableData<T>();

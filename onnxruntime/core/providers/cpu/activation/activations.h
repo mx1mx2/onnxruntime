@@ -30,7 +30,7 @@ class Elu final : public OpKernel {
     ThreadPool* tp = context->GetOperatorThreadPool();
     const int64_t input_size = X->Shape().Size();
     std::ptrdiff_t batch_size = static_cast<std::ptrdiff_t>(input_size);
-    // The cost comes from microbenchmark(manual tunning).
+    // The cost comes from microbenchmark(manual tuning).
     const double cost = 40.0;
     const T* data = X->template Data<T>();
     T* output = Y->template MutableData<T>();
@@ -64,7 +64,7 @@ class HardSigmoid final : public OpKernel {
     ThreadPool* tp = context->GetOperatorThreadPool();
     const int64_t input_size = X->Shape().Size();
     std::ptrdiff_t batch_size = static_cast<std::ptrdiff_t>(input_size);
-    // The cost comes from microbenchmark(manual tunning).
+    // The cost comes from microbenchmark(manual tuning).
     const double cost = 0.5;
     const T* data = X->template Data<T>();
     T* output = Y->template MutableData<T>();
@@ -97,7 +97,7 @@ class LeakyRelu final : public OpKernel {
     ThreadPool* tp = context->GetOperatorThreadPool();
     const int64_t input_size = X->Shape().Size();
     std::ptrdiff_t batch_size = static_cast<std::ptrdiff_t>(input_size);
-    // The cost comes from microbenchmark(manual tunning).
+    // The cost comes from microbenchmark(manual tuning).
     const double cost = 25;
     const T* data = X->template Data<T>();
     T* output = Y->template MutableData<T>();
@@ -131,7 +131,7 @@ class ParametricSoftplus final : public OpKernel {
     ThreadPool* tp = context->GetOperatorThreadPool();
     const int64_t input_size = X->Shape().Size();
     std::ptrdiff_t batch_size = static_cast<std::ptrdiff_t>(input_size);
-    // The cost comes from microbenchmark(manual tunning).
+    // The cost comes from microbenchmark(manual tuning).
     const double cost = 15;
     const T* data = X->template Data<T>();
     T* output = Y->template MutableData<T>();
@@ -159,10 +159,23 @@ class Relu : public OpKernel {
   }
 
   Status Compute(OpKernelContext* context) const override {
-    const auto* X = context->Input<Tensor>(0);
+    const Tensor* X = context->Input<Tensor>(0);
     Tensor* Y = context->Output(0, X->Shape());
-    EIGEN_Y = EIGEN_X.cwiseMax(0);
-    return Status::OK();
+    ThreadPool* tp = context->GetOperatorThreadPool();
+    const int64_t input_size = X->Shape().Size();
+    std::ptrdiff_t batch_size = static_cast<std::ptrdiff_t>(input_size);
+    // The cost comes from microbenchmark(manual tuning).
+    const double cost = 1;
+    const T* data = X->template Data<T>();
+    T* output = Y->template MutableData<T>();
+    ThreadPool::TryParallelFor(tp, batch_size, cost, [data, output](ptrdiff_t first, ptrdiff_t last) {
+      ptrdiff_t len = last - first;
+      T* output_ptr = output + first;
+      onnxruntime::ConstEigenVectorArrayMap<T> xm(data + first, len);
+      onnxruntime::EigenVectorArrayMap<T> ym(output_ptr, len);
+      ym = xm.cwiseMax(0);
+    });
+    return Status::OK();    
   }
 };
 
@@ -182,7 +195,7 @@ class Selu final : public OpKernel {
     ThreadPool* tp = context->GetOperatorThreadPool();
     const int64_t input_size = X->Shape().Size();
     std::ptrdiff_t batch_size = static_cast<std::ptrdiff_t>(input_size);
-    // The cost comes from microbenchmark(manual tunning).
+    // The cost comes from microbenchmark(manual tuning).
     const double cost = 4;
     const T* data = X->template Data<T>();
     T* output = Y->template MutableData<T>();
@@ -213,7 +226,7 @@ class Sigmoid final : public OpKernel {
     ThreadPool* tp = context->GetOperatorThreadPool();
     const int64_t input_size = X->Shape().Size();
     std::ptrdiff_t batch_size = static_cast<std::ptrdiff_t>(input_size);
-    // The cost comes from microbenchmark(manual tunning).
+    // The cost comes from microbenchmark(manual tuning).
     const double cost = 1;
     const T* data = X->template Data<T>();
     T* output = Y->template MutableData<T>();
@@ -243,7 +256,7 @@ class Softsign final : public OpKernel {
     ThreadPool* tp = context->GetOperatorThreadPool();
     const int64_t input_size = X->Shape().Size();
     std::ptrdiff_t batch_size = static_cast<std::ptrdiff_t>(input_size);
-    // The cost comes from microbenchmark(manual tunning).
+    // The cost comes from microbenchmark(manual tuning).
     const double cost = 1;
     const T* data = X->template Data<T>();
     T* output = Y->template MutableData<T>();
@@ -270,7 +283,7 @@ class Tanh final : public OpKernel {
     ThreadPool* tp = context->GetOperatorThreadPool();
     const int64_t input_size = X->Shape().Size();
     std::ptrdiff_t batch_size = static_cast<std::ptrdiff_t>(input_size);
-    // The cost comes from microbenchmark(manual tunning).
+    // The cost comes from microbenchmark(manual tuning).
     const double cost = 1;
     const T* data = X->template Data<T>();
     T* output = Y->template MutableData<T>();
@@ -295,10 +308,22 @@ class ThresholdedRelu final : public OpKernel {
   }
 
   Status Compute(OpKernelContext* context) const override {
-    const auto* X = context->Input<Tensor>(0);
+    const Tensor* X = context->Input<Tensor>(0);
     Tensor* Y = context->Output(0, X->Shape());
-    EIGEN_X_VAR(xm);
-    EIGEN_Y = (xm > (T)alpha_).select(xm, 0);
+    ThreadPool* tp = context->GetOperatorThreadPool();
+    const int64_t input_size = X->Shape().Size();
+    std::ptrdiff_t batch_size = static_cast<std::ptrdiff_t>(input_size);
+    // The cost comes from microbenchmark(manual tuning).
+    const double cost = 1;
+    const T* data = X->template Data<T>();
+    T* output = Y->template MutableData<T>();
+    ThreadPool::TryParallelFor(tp, batch_size, cost, [data, output](ptrdiff_t first, ptrdiff_t last) {
+      ptrdiff_t len = last - first;
+      T* output_ptr = output + first;
+      onnxruntime::ConstEigenVectorArrayMap<T> xm(data + first, len);
+      onnxruntime::EigenVectorArrayMap<T> ym(output_ptr, len);
+      ym = (xm > (T)alpha_).select(xm, 0);
+    });
     return Status::OK();
   }
 
