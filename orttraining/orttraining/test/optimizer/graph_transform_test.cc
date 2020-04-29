@@ -12,6 +12,7 @@
 #include "core/optimizer/utils.h"
 #include "orttraining/core/optimizer/gist_encode_decode.h"
 #include "orttraining/core/optimizer/megatron_transformer.h"
+#include "orttraining/core/optimizer/constant_and_shape_folding.h"
 #include "test/optimizer/graph_transform_test_fixture.h"
 #include "test/util/include/default_providers.h"
 #include "orttraining/test/optimizer/horizontal_parallel_test_utils.h"
@@ -58,6 +59,53 @@ Node* GetNodeByName(Graph& graph, std::string node_name) {
   return nullptr;
 }
 
+TEST_F(GraphTransformationTests, ConstantAndShapeFolding) {
+  auto model_uri = MODEL_FOLDER "fusion/constant_and_shape_folding.onnx";
+  std::shared_ptr<Model> model;
+  ASSERT_TRUE(Model::Load(model_uri, model, nullptr, *logger_).IsOK());
+  Graph& graph = model->MainGraph();
+  std::map<std::string, int> op_to_count = CountOpsInGraph(graph);
+  ASSERT_TRUE(op_to_count["Shape"] == 2);
+  ASSERT_TRUE(op_to_count["MatMul"] == 2);
+  ASSERT_TRUE(op_to_count["Unsqueeze"] == 3);
+
+  std::unordered_set<std::string> compatible_eps;
+  std::unordered_set<std::string> excluded_initializers;
+  excluded_initializers.insert("matmul_weight");
+  onnxruntime::GraphTransformerManager graph_transformation_mgr{5};
+  graph_transformation_mgr.Register(onnxruntime::make_unique<ConstantAndShapeFolding>(compatible_eps, excluded_initializers), TransformerLevel::Level1);
+
+  ASSERT_TRUE(graph_transformation_mgr.ApplyTransformers(graph, TransformerLevel::Level1, *logger_).IsOK());
+
+  op_to_count = CountOpsInGraph(graph);
+  ASSERT_TRUE(op_to_count["Shape"] == 0);
+  ASSERT_TRUE(op_to_count["MatMul"] == 2);
+  ASSERT_TRUE(op_to_count["Unsqueeze"] == 0);
+}
+
+TEST_F(GraphTransformationTests, ConstantAndShapeFoldingWithScalarShape) {
+  auto model_uri = MODEL_FOLDER "fusion/constant_and_shape_folding_with_scalar_shape.onnx";
+  std::shared_ptr<Model> model;
+  ASSERT_TRUE(Model::Load(model_uri, model, nullptr, *logger_).IsOK());
+  Graph& graph = model->MainGraph();
+  std::map<std::string, int> op_to_count = CountOpsInGraph(graph);
+  ASSERT_TRUE(op_to_count["Shape"] == 1);
+  ASSERT_TRUE(op_to_count["ConstantOfShape"] == 1);
+  ASSERT_TRUE(op_to_count["Add"] == 1);
+
+  std::unordered_set<std::string> compatible_eps;
+  std::unordered_set<std::string> excluded_initializers;
+  excluded_initializers.insert("matmul_weight");
+  onnxruntime::GraphTransformerManager graph_transformation_mgr{5};
+  graph_transformation_mgr.Register(onnxruntime::make_unique<ConstantAndShapeFolding>(compatible_eps, excluded_initializers), TransformerLevel::Level1);
+
+  ASSERT_TRUE(graph_transformation_mgr.ApplyTransformers(graph, TransformerLevel::Level1, *logger_).IsOK());
+
+  op_to_count = CountOpsInGraph(graph);
+  ASSERT_TRUE(op_to_count["Shape"] == 0);
+  ASSERT_TRUE(op_to_count["ConstantOfShape"] == 0);
+  ASSERT_TRUE(op_to_count["Add"] == 1);
+}
 
 // MegatronF/G is defined only for training, and in msdomain.
 #ifndef DISABLE_CONTRIB_OPS
